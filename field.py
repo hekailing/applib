@@ -118,7 +118,7 @@ class DateTimeField(Field):
         if isinstance(val, (str, unicode)):
             return val
         elif isinstance(val, datetime.datetime):
-            return val.strftime('%Y-%m-%d %H:%M:%S')
+            return val.strftime('%Y-%m-%d %H:%M:%S.%f')
         else:
             raise FieldTypeError()
 

@@ -21,8 +21,8 @@ import json
 import os
 
 import session
-import config
-from config import redis as redis_conf
+from .. import config
+from ..config import redis as redis_conf
 
 ##############################
 def to_unicode(data, encoding='utf-8'):
@@ -42,6 +42,22 @@ def to_unicode(data, encoding='utf-8'):
     return _convert(data)
 
 
+def to_utf8(data):
+    import collections
+    def _convert(data):
+        if isinstance(data, unicode):
+            return data.encode('utf-8')
+        elif isinstance(data, str):
+            return data
+        elif isinstance(data, collections.Mapping):
+            return dict(map(_convert, data.iteritems()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(_convert, data))
+        else:
+            return data
+    return _convert(data)
+
+
 def silent_none(value):
     if value is None:
         return ""
@@ -51,7 +67,9 @@ def silent_none(value):
 def render(file_path, data={}):
     encoding = 'utf-8'
     data = to_unicode(data, encoding)
-    env = jinja2.Environment(loader=jinja2.PackageLoader('loginmanager', 'templates'))
+    loader = jinja2.PackageLoader(config.render['package_name'],
+                                  config.render['template_path'])
+    env = jinja2.Environment(loader=loader)
     #env.finalize = silent_none
     template = env.get_template(file_path)
 
@@ -73,9 +91,15 @@ class BaseHandler(webapp2.RequestHandler):
     def respond(self, pat, data={}):
         return render(pat, data)
 
-
     def respond_err(self, msg):
         return render('msg.html', {'msg': msg})
+
+    def download(self, name, content):
+        self.response.headers.add_header('Content-Type', 'application/octet-stream')
+        print name
+        self.response.headers.add_header('Content-Disposition',
+                                         'attachment; filename="'+name+'"')
+        return content
 
     #csw:add xsrf token for csrf prevention
     def xsrf_token(self):
@@ -128,6 +152,9 @@ class BaseHandler(webapp2.RequestHandler):
 
 
 class AuthHandler(BaseHandler):
+    def check_perm(self):
+        return isinstance(self.perm, (int, long))
+
     def dispatch(self):
         sid = self.request.cookies.get('_sid')
 
@@ -137,6 +164,13 @@ class AuthHandler(BaseHandler):
         self.session = get_session(sid)
         self.perm = self.session.get('perm')
         self.user = self.session.get('user')
+
+        if self.perm is None or self.user is None:
+            return self.redirect('/login/login')
+
+        if not self.check_perm():
+            return self.response.write(self.respond_err('forbidden'))
+
         try:
             # Dispatch the request.
             BaseHandler.dispatch(self)

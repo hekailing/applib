@@ -135,6 +135,7 @@ class ModelData():
     def limit(self, ndata, offset):
         self._limitstr = 'LIMIT %d,%d' % (offset, ndata)
         self._data = None
+        return self
 
     def leftjoin(self, lfield, rmodel, rfield):
         if self._joins:
