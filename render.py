@@ -37,3 +37,9 @@ def make_render(engine, *args):
         return Jinja2Render(*args)
     else:
         raise NoEngine()
+
+
+def blur(s, start=0, end=0, n=1):
+    if not end:
+        end = len(s)
+    return s[:start] + '*' * n + s[end:]
