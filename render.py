@@ -40,6 +40,5 @@ def make_render(engine, *args):
 
 
 def blur(s, start=0, end=0, n=1):
-    if not end:
-        end = len(s)
+    end = len(s) - end
     return s[:start] + '*' * n + s[end:]
