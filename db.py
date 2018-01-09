@@ -166,6 +166,17 @@ def update(table, where=None, *where_args, **kv):
 
 
 @with_connection
+def delete(sql, args):
+    cursor = None
+    try:
+        cursor = _db_conn.open_cursor()
+        return cursor.execute(sql, args)
+    finally:
+        if cursor:
+            cursor.close()
+
+
+@with_connection
 def select(sql, args, envs = None):
     cursor = None
     try:

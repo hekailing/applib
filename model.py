@@ -40,6 +40,10 @@ class ReadError(ModelError):
     pass
 
 
+class DeleteError(ModelError):
+    pass
+
+
 class ModelData():
     def __init__(self, model):
         self._model = model
@@ -224,6 +228,23 @@ class ModelData():
         except db.DbError:
             raise ReadError()
 
+    def delete(self):
+        sqls = []
+        sqls.append('DELETE')
+        sqls.append('FROM')
+        sqls.append('`'+self._model.table+'`')
+        filts = self._filts
+        args = self._filtargs
+        filtstr = ' AND '.join(filts)
+        if filtstr:
+            sqls.append('WHERE')
+            sqls.append(filtstr)
+        sql = ' '.join(sqls)
+        try:
+            return db.delete(sql, args)
+        except db.DbError:
+            raise DeleteError()
+
     def count(self):
         self._read(count=True)
         cnt = self._data[0]['COUNT(*)']
@@ -300,3 +321,7 @@ class Model():
     @classmethod
     def count(cls, **kv):
         cls.data().count(**kv)
+
+    @classmethod
+    def delete(cls, **kv):
+        cls.data().delete(**kv)
