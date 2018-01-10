@@ -88,6 +88,11 @@ def get_session(sid):
 
 ##############################
 class BaseHandler(webapp2.RequestHandler):
+
+    def __init__(self, request, response):
+        super(BaseHandler, self).__init__(request, response)
+        self._userip = None
+
     def respond(self, pat, data={}):
         return render(pat, data)
 
@@ -136,6 +141,8 @@ class BaseHandler(webapp2.RequestHandler):
         self.response.write(rv)
 
     def get_client_ip(self):
+        if self._userip:
+            return self._userip
         environ = self.request.environ
         userip = environ['REMOTE_ADDR']
         x_forwarded_for = environ.get('HTTP_X_FORWARDED_FOR')
@@ -148,6 +155,7 @@ class BaseHandler(webapp2.RequestHandler):
                     if not ip in config.KNOWN_PROXY_IPS:
                         userip = ip
                         break
+        self._userip = userip
         return userip
 
 
