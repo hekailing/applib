@@ -11,6 +11,11 @@ class DupOrderError(ModelError):
         super(Exception, self).__init__('order by cannot support multi-column')
 
 
+class DupGroupError(ModelError):
+    def __init__(self):
+        super(Exception, self).__init__('group by cannot support multi-column')
+
+
 class DupJoinError(ModelError):
     def __init__(self):
         super(Exception, self).__init__('duplicate join')
@@ -48,6 +53,7 @@ class ModelData():
     def __init__(self, model):
         self._model = model
         self._orderstr = ''
+        self._groupstr = ''
         self._filts = []
         self._filtargs = []
         self._data = None
@@ -136,6 +142,18 @@ class ModelData():
         self._data = None
         return self
 
+    def groupby(self, *args):
+        if not args:
+            self._groupstr = ''
+        if len(args) > 1:
+            raise DupGroupError()
+        name = args[0]
+        if name not in self._model.fields:
+            raise NoFieldError(name)
+        self._groupstr = 'GROUP BY `%s`' % name
+        self._data = None
+        return self
+
     def limit(self, ndata, offset):
         self._limitstr = 'LIMIT %d,%d' % (offset, ndata)
         self._data = None
@@ -170,7 +188,7 @@ class ModelData():
         self._time_end = end
         return self
 
-    def _read(self, lock=None, count=False, fields=None):
+    def _read(self, lock=None, count=False, fields=None, funcs=None):
         outcols = '*'
         envs = {}
         sqls = []
@@ -181,8 +199,10 @@ class ModelData():
             sqls.append('COUNT(*)')
         elif self._joins:
             sqls.append(self._model.table + '.*')
-        elif fields:
-            sqls.append('`' + '`,`'.join(fields) + '`')
+        elif fields or funcs:
+            _fields = [fd.join(('`','`')) for fd in fields] + \
+                      [' AS '.join((val, key)) for key, val in funcs.items()]
+            sqls.append(','.join(_fields))
         else:
             sqls.append('*')
         sqls.append('FROM')
@@ -218,6 +238,8 @@ class ModelData():
             sqls.append('@cur_time:=`%s`' % self._time_field)
         if self._orderstr:
             sqls.append(self._orderstr)
+        if self._groupstr:
+            sqls.append(self._groupstr)
         if self._limitstr:
             sqls.append(self._limitstr)
         if lock:
@@ -251,9 +273,9 @@ class ModelData():
         self._data = None
         return cnt
 
-    def output(self, *args):
+    def output(self, *args, **kw):
         if self._data is None:
-            self._read(fields=args)
+            self._read(fields=args, funcs=kw)
         return self._data
 
     def get(self, ndata, offset=0):
@@ -262,8 +284,8 @@ class ModelData():
         data, self._data = self._data, None
         return data
 
-    def getall(self, *args):
-        return self.output(*args)
+    def getall(self, *args, **kw):
+        return self.output(*args, **kw)
 
     def getone(self):
         self._read()
